@@ -23,24 +23,30 @@
 #include <igl/writeOBJ.h>
 #include <igl/readPLY.h>
 #include <igl/per_vertex_normals.h>
-#include <igl/per_face_normals.h>
 
 #include <map>
 #include <vector>
+
+// for reading texture
+#include <stb/stb_image.h>
+#include <stb/stb_image_resize.h>
+#include <stb/stb_image_write.h>
+#include <array>
+
+#include <sstream>
 
 // for opengl-friendly conversion
 #include <glm/glm.hpp>
 using CoordsDictionary = std::map<std::string, Eigen::RowVectorXd>;
 using CoordsDictEntry = std::pair<std::string, Eigen::RowVectorXd>;
 
+#include <GeneralUtility.h>
+
+#include "Shader.h"
+
 class GeneralMesh
 {
 public:
-    enum Gender {
-        FEMALE, 
-        MALE, 
-        UNKNOWN
-    };
 
     struct GLMVertex
     {
@@ -48,37 +54,41 @@ public:
         glm::vec3 normal;
     };
 
-    GeneralMesh(const char* input_filename_c, Gender gender = UNKNOWN, const char* key_vertices_filename = nullptr);
-    ~GeneralMesh();
+    GeneralMesh() {};
+    GeneralMesh(const char* input_filename_c, const char* key_vertices_filename = nullptr);
+    virtual ~GeneralMesh();
 
-    const std::string& getName() const           { return name_; };
-    Gender getGender() const                     { return gender_; };
+    const std::string& getName() const           { return name_; }
 
-    const Eigen::MatrixXi& getFaces() const      { return faces_; };
-    const Eigen::MatrixXd& getFaceNormals() const      { return faces_normals_; };
+    const Eigen::MatrixXi& getFaces() const      { return faces_; }
     // with vertex ids staring from zero:
-    const std::vector<unsigned int>& getGLMFaces() const      { return gl_faces_; };
+    const std::vector<unsigned int>& getGLMFaces() const      { return gl_faces_; }
 
-    const Eigen::MatrixXd& getVertices() const   { return verts_; };
-    const Eigen::MatrixXd& getNormalizedVertices() const   { return verts_normalized_; };
-    const std::vector<GLMVertex>& getGLNormalizedVertices() const   { return gl_vertices_normalized_; };
-
-    const Eigen::VectorXd& getMeanPoint() const  { return mean_point_; };
+    const Eigen::MatrixXd& getVertices() const   { return verts_; }
+    const Eigen::MatrixXd& getNormalizedVertices() const   { return verts_normalized_; }
+    const std::vector<GLMVertex>& getGLNormalizedVertices() const { return gl_vertices_normalized_; }
+    
+    const Eigen::VectorXd& getMeanPoint() const  { return mean_point_; }
     // the user need to check the dictionary for emptiness
     const CoordsDictionary& getKeyPoints() const  { return key_points_; }
 
     void saveNormalizedMesh(std::string path) const;
+    //divide by delimiter and white space(' ')
+    static std::vector<std::string> tokenize_getline(const std::string& data, const char& delimiter = ' ');
 
-private:
-    void readFile_(const std::string& filename);
+
+protected:
+    //prevent read twice(== ban GeneralMesh::glFriendlyMesh_();)
+    GeneralMesh(const char* input_filename_c, const char* key_vertices_filename, bool flag);
+    void Init_(const char* input_filename_c, const char* key_vertices_filename = nullptr);
+    void readFile_(const std::string& filename, bool save = false);
     void normalizeVertices_();
-    void glFriendlyMesh_();
+    virtual void glFriendlyMesh_();
     void cutName_(const std::string& filename);
     void readKeyVertices_(const char * filename);
     bool checkFileExist_(const char * filename);
-
+    
     std::string name_;
-    Gender gender_;
 
     Eigen::MatrixXd verts_;
     Eigen::MatrixXd verts_normalized_;
@@ -86,7 +96,6 @@ private:
     std::vector<GLMVertex> gl_vertices_normalized_;
 
     Eigen::MatrixXi faces_;
-    Eigen::MatrixXd faces_normals_;
     std::vector<unsigned int> gl_faces_;
 
     Eigen::VectorXd mean_point_;
